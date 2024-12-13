@@ -2,38 +2,38 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const AuthenticationPage: React.FC = () => {
-  const [username, setUsername] = useState("");
-  const navigate = useNavigate();
+    const [username, setUsername] = useState("");
+    const navigate = useNavigate();
 
-  const handleLogin = () => {
-    if (username.trim() === "") {
-      alert("Username cannot be empty.");
-      return;
-    }
-    // Save the username to localStorage
-    localStorage.setItem("username", username.trim());
-    // Redirect the user to the forum page
-    navigate("/forum");
-  };
+    const handleLogin = () => {
+        if (username.trim() === "") {
+        alert("Username cannot be empty.");
+        return;
+        }
+        // Save the username to localStorage
+        localStorage.setItem("username", username.trim());
+        // Redirect the user to the forum page
+        navigate("/forum");
+    };
 
-  return (
-    <div style={styles.container}>
-      <h1>Welcome to the Forum</h1>
-      <div style={styles.inputContainer}>
-        <label htmlFor="username">Enter your username:</label>
-        <input
-          id="username"
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Username"
-          style={styles.input}
-        />
-      </div>
-      <button onClick={handleLogin} style={styles.button}>
-        Login
-      </button>
-    </div>
+    return (
+        <div style={styles.container}>
+        <h1>Welcome to the Forum</h1>
+        <div style={styles.inputContainer}>
+            <label htmlFor="username">Enter your username:</label>
+            <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Username"
+            style={styles.input}
+            />
+        </div>
+        <button onClick={handleLogin} style={styles.button}>
+            Login
+        </button>
+        </div>
   );
 };
 

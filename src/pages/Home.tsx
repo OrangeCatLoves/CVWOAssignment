@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Thread from "../components/Thread"; // Adjust the import path as needed
 
 interface Thread {
   id: number;
@@ -11,6 +12,7 @@ interface Thread {
 const Home: React.FC = () => {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [newThreadTitle, setNewThreadTitle] = useState("");
+  const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const username = localStorage.getItem("username") || "Anonymous User";
   const navigate = useNavigate();
 
@@ -62,7 +64,7 @@ const Home: React.FC = () => {
           <div
             key={thread.id}
             style={styles.threadItem}
-            onClick={() => navigate(`/thread/${thread.id}`)}
+            onClick={() => setActiveThread(thread)}
           >
             <h3 style={styles.threadTitle}>{thread.title}</h3>
             <p style={styles.threadDetails}>
@@ -71,6 +73,17 @@ const Home: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Show Thread Modal */}
+      {activeThread && (
+        <Thread
+          id={activeThread.id}
+          title={activeThread.title}
+          creator={activeThread.creator}
+          createdAt={activeThread.createdAt}
+          onClose={() => setActiveThread(null)}
+        />
+      )}
     </div>
   );
 };

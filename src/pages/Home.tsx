@@ -1,152 +1,193 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import Thread from "../components/Thread"; // Adjust the import path as needed
+import React, { useEffect, useState } from "react";
 
-interface Thread {
+// Define the type for a thread
+type Thread = {
   id: number;
   title: string;
   creator: string;
-  createdAt: string;
-}
+  created_at: string;
+  replies: number; // Number of replies for each thread
+};
 
 const Home: React.FC = () => {
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [newThreadTitle, setNewThreadTitle] = useState("");
-  const [activeThread, setActiveThread] = useState<Thread | null>(null);
-  const username = localStorage.getItem("username") || "Anonymous User";
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
 
-  // Mock threads data (can be replaced with an API call)
+  // Fetch threads on component mount
   useEffect(() => {
-    setThreads([
-      { id: 1, title: "CS1010S: Need help with recursion", creator: "Alice", createdAt: "2024-12-01" },
-      { id: 2, title: "MA1101R: Challenging topics in calculus", creator: "Bob", createdAt: "2024-12-02" },
-    ]);
+    const fetchThreads = async () => {
+      try {
+        const response = await fetch("http://localhost:8080/threads"); // Adjust if needed for your server
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data: Thread[] = await response.json();
+        setThreads(data);
+        setFilteredThreads(data); // Initialize filtered threads with all threads
+        setLoading(false);
+      } catch (err: any) {
+        setError(err.message || "An error occurred");
+        setLoading(false);
+      }
+    };
+
+    fetchThreads();
   }, []);
 
-  const handleCreateThread = () => {
-    if (newThreadTitle.trim() === "") {
-      alert("Thread title cannot be empty.");
-      return;
+  // Filter threads based on search query
+  useEffect(() => {
+    if (searchQuery) {
+      const filtered = threads.filter((thread) =>
+        thread.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredThreads(filtered);
+    } else {
+      setFilteredThreads(threads); // Reset to all threads if search is cleared
     }
-    const newThread: Thread = {
-      id: threads.length + 1,
-      title: newThreadTitle,
-      creator: username,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    setThreads([newThread, ...threads]);
-    setNewThreadTitle("");
-  };
+  }, [searchQuery, threads]);
+
+  if (loading) {
+    return (
+      <div style={styles.centered}>
+        <p>Loading threads...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={styles.centered}>
+        <p style={styles.errorText}>Error: {error}</p>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.header}>Welcome, {username}!</h1>
-      <p style={styles.subHeader}>Explore threads or create your own topic to discuss.</p>
+      <h1 style={styles.header}>Welcome to the NUS Forum</h1>
 
-      {/* Create New Thread */}
-      <div style={styles.newThreadContainer}>
+      {/* Search Bar */}
+      <div style={styles.searchContainer}>
         <input
           type="text"
-          value={newThreadTitle}
-          onChange={(e) => setNewThreadTitle(e.target.value)}
-          placeholder="Enter thread title..."
-          style={styles.input}
+          placeholder="Search for threads..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={styles.searchInput}
         />
-        <button onClick={handleCreateThread} style={styles.createButton}>
-          Create Thread
-        </button>
       </div>
 
-      {/* List of Threads */}
-      <div style={styles.threadList}>
-        {threads.map((thread) => (
-          <div
-            key={thread.id}
-            style={styles.threadItem}
-            onClick={() => setActiveThread(thread)}
-          >
-            <h3 style={styles.threadTitle}>{thread.title}</h3>
-            <p style={styles.threadDetails}>
-              Created by: {thread.creator} on {thread.createdAt}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Show Thread Modal */}
-      {activeThread && (
-        <Thread
-          id={activeThread.id}
-          title={activeThread.title}
-          creator={activeThread.creator}
-          createdAt={activeThread.createdAt}
-          onClose={() => setActiveThread(null)}
-        />
-      )}
+      <h2 style={styles.subHeader}>Available Threads</h2>
+      <ul style={styles.list}>
+        {filteredThreads.length > 0 ? (
+          filteredThreads.map((thread) => (
+            <li key={thread.id} style={styles.threadItem}>
+              <h3 style={styles.title}>{thread.title}</h3>
+              <p style={styles.details}>
+                Created by {thread.creator} on{" "}
+                {new Date(thread.created_at).toLocaleDateString()}
+              </p>
+              <p style={styles.details}>Replies: {thread.replies}</p>
+              <div style={styles.buttonContainer}>
+                <button style={styles.joinButton}>Join</button>
+                <button style={styles.askButton}>Ask a Question</button>
+              </div>
+            </li>
+          ))
+        ) : (
+          <p>No threads found matching your search criteria.</p>
+        )}
+      </ul>
     </div>
   );
 };
 
 const styles = {
   container: {
-    maxWidth: "800px",
-    margin: "0 auto",
     padding: "20px",
     fontFamily: "'Arial', sans-serif",
-    backgroundColor: "#f9f9f9",
+    maxWidth: "800px",
+    margin: "0 auto",
   },
   header: {
-    textAlign: "center" as const,
-    color: "#007BFF",
+    fontSize: "28px",
+    fontWeight: "bold",
+    marginBottom: "20px",
+    color: "#2C3E50",
   },
   subHeader: {
-    textAlign: "center" as const,
-    marginBottom: "20px",
-    color: "#555",
+    fontSize: "20px",
+    fontWeight: "600",
+    marginBottom: "15px",
+    color: "#34495E",
   },
-  newThreadContainer: {
-    display: "flex",
-    marginBottom: "20px",
-  },
-  input: {
-    flex: 1,
-    padding: "10px",
-    fontSize: "16px",
-    border: "1px solid #ddd",
-    borderRadius: "5px",
-  },
-  createButton: {
-    padding: "10px 20px",
-    fontSize: "16px",
-    backgroundColor: "#007BFF",
-    color: "#fff",
-    border: "none",
-    borderRadius: "5px",
-    marginLeft: "10px",
-    cursor: "pointer",
-  },
-  threadList: {
-    marginTop: "20px",
+  list: {
+    listStyleType: "none",
+    padding: 0,
   },
   threadItem: {
+    padding: "20px",
+    marginBottom: "15px",
+    backgroundColor: "#f9f9f9",
     border: "1px solid #ddd",
-    borderRadius: "5px",
-    padding: "10px",
-    marginBottom: "10px",
-    backgroundColor: "#fff",
-    cursor: "pointer",
-    transition: "transform 0.2s",
+    borderRadius: "8px",
+    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
   },
-  threadTitle: {
-    margin: "0 0 5px 0",
-    fontSize: "18px",
+  title: {
+    fontSize: "20px",
+    fontWeight: "bold",
+    color: "#2C3E50",
   },
-  threadDetails: {
-    margin: "0",
+  details: {
     fontSize: "14px",
-    color: "#666",
+    color: "#555",
+    margin: "5px 0",
   },
-};
+  buttonContainer: {
+    marginTop: "15px",
+  },
+  joinButton: {
+    backgroundColor: "#27AE60",
+    color: "#fff",
+    border: "none",
+    padding: "10px 15px",
+    fontSize: "14px",
+    borderRadius: "5px",
+    cursor: "pointer",
+    marginRight: "10px",
+  },
+  askButton: {
+    backgroundColor: "#2980B9",
+    color: "#fff",
+    border: "none",
+    padding: "10px 15px",
+    fontSize: "14px",
+    borderRadius: "5px",
+    cursor: "pointer",
+  },
+  searchContainer: {
+    marginBottom: "20px",
+  },
+  searchInput: {
+    width: "100%",
+    padding: "10px",
+    fontSize: "16px",
+    borderRadius: "5px",
+    border: "1px solid #ccc",
+  },
+  centered: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    height: "100vh",
+  },
+  errorText: {
+    color: "red",
+    fontSize: "16px",
+  },
+} as const;
 
 export default Home;

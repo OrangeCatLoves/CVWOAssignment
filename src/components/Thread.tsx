@@ -5,11 +5,11 @@ interface ThreadProps {
   id: number;
   title: string;
   creator: string;
-  createdAt: string;
+  created_at: string;
   onClose: () => void;
 }
 
-const Thread: React.FC<ThreadProps> = ({ id, title, creator, createdAt, onClose }) => {
+const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose }) => {
   const [messages, setMessages] = useState<string[]>([]);
   const [newMessage, setNewMessage] = useState("");
 
@@ -28,7 +28,7 @@ const Thread: React.FC<ThreadProps> = ({ id, title, creator, createdAt, onClose 
         </button>
         <h2 style={styles.title}>{title}</h2>
         <p style={styles.details}>
-          Created by: {creator} on {createdAt}
+          Created by: {creator} on {new Date(created_at).toLocaleString()}
         </p>
 
         <div style={styles.chatContainer}>

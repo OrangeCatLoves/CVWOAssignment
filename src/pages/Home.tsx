@@ -6,27 +6,28 @@ type Thread = {
   title: string;
   creator: string;
   created_at: string;
-  replies: number; // Number of replies for each thread
 };
 
 const Home: React.FC = () => {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>(""); 
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
+  const [newThreadTitle, setNewThreadTitle] = useState<string>(""); 
+  const [username, setUsername] = useState<string>("");
+  const [isCreating, setIsCreating] = useState<boolean>(false);
 
-  // Fetch threads on component mount
   useEffect(() => {
     const fetchThreads = async () => {
       try {
-        const response = await fetch("http://localhost:8080/threads"); // Adjust if needed for your server
+        const response = await fetch("http://localhost:8080/threads");
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data: Thread[] = await response.json();
         setThreads(data);
-        setFilteredThreads(data); // Initialize filtered threads with all threads
+        setFilteredThreads(data);
         setLoading(false);
       } catch (err: any) {
         setError(err.message || "An error occurred");
@@ -35,9 +36,52 @@ const Home: React.FC = () => {
     };
 
     fetchThreads();
+    const savedUsername = localStorage.getItem("username");
+    setUsername(savedUsername || "Guest");
   }, []);
 
-  // Filter threads based on search query
+  const createThread = async () => {
+    // Validate inputs
+    if (!newThreadTitle.trim()) {
+      setError("Thread title cannot be empty");
+      return;
+    }
+
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      const response = await fetch("http://localhost:8080/threads/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: newThreadTitle.trim(),
+          creator: username,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const newThread: Thread = await response.json();
+
+      // Update the threads list with the new thread
+      setThreads(prevThreads => [newThread, ...prevThreads]);
+      setFilteredThreads(prevFiltered => [newThread, ...prevFiltered]);
+      
+      // Clear the input field
+      setNewThreadTitle("");
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to create thread");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   useEffect(() => {
     if (searchQuery) {
       const filtered = threads.filter((thread) =>
@@ -45,31 +89,22 @@ const Home: React.FC = () => {
       );
       setFilteredThreads(filtered);
     } else {
-      setFilteredThreads(threads); // Reset to all threads if search is cleared
+      setFilteredThreads(threads);
     }
   }, [searchQuery, threads]);
 
   if (loading) {
     return (
-      <div style={styles.centered}>
+      <div>
         <p>Loading threads...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={styles.centered}>
-        <p style={styles.errorText}>Error: {error}</p>
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.header}>Welcome to the NUS Forum</h1>
+      <h1 style={styles.header}>Welcome to the Forum, {username}!</h1>
 
-      {/* Search Bar */}
       <div style={styles.searchContainer}>
         <input
           type="text"
@@ -79,6 +114,30 @@ const Home: React.FC = () => {
           style={styles.searchInput}
         />
       </div>
+
+      <div style={styles.createThreadContainer}>
+        <input
+          type="text"
+          placeholder="Enter thread title..."
+          value={newThreadTitle}
+          onChange={(e) => setNewThreadTitle(e.target.value)}
+          style={styles.threadInput}
+          disabled={isCreating}
+        />
+        <button 
+          style={{
+            ...styles.createButton,
+            opacity: isCreating ? 0.7 : 1,
+            cursor: isCreating ? "not-allowed" : "pointer"
+          }} 
+          onClick={createThread}
+          disabled={isCreating}
+        >
+          {isCreating ? "Creating..." : "Create Thread"}
+        </button>
+      </div>
+
+      {error && <p style={styles.errorText}>{error}</p>}
 
       <h2 style={styles.subHeader}>Available Threads</h2>
       <ul style={styles.list}>
@@ -90,11 +149,6 @@ const Home: React.FC = () => {
                 Created by {thread.creator} on{" "}
                 {new Date(thread.created_at).toLocaleDateString()}
               </p>
-              <p style={styles.details}>Replies: {thread.replies}</p>
-              <div style={styles.buttonContainer}>
-                <button style={styles.joinButton}>Join</button>
-                <button style={styles.askButton}>Ask a Question</button>
-              </div>
             </li>
           ))
         ) : (
@@ -104,6 +158,7 @@ const Home: React.FC = () => {
     </div>
   );
 };
+
 
 const styles = {
   container: {
@@ -146,28 +201,6 @@ const styles = {
     color: "#555",
     margin: "5px 0",
   },
-  buttonContainer: {
-    marginTop: "15px",
-  },
-  joinButton: {
-    backgroundColor: "#27AE60",
-    color: "#fff",
-    border: "none",
-    padding: "10px 15px",
-    fontSize: "14px",
-    borderRadius: "5px",
-    cursor: "pointer",
-    marginRight: "10px",
-  },
-  askButton: {
-    backgroundColor: "#2980B9",
-    color: "#fff",
-    border: "none",
-    padding: "10px 15px",
-    fontSize: "14px",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
   searchContainer: {
     marginBottom: "20px",
   },
@@ -178,16 +211,32 @@ const styles = {
     borderRadius: "5px",
     border: "1px solid #ccc",
   },
-  centered: {
+  createThreadContainer: {
     display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    height: "100vh",
+    gap: "10px",
+    marginBottom: "20px",
+  },
+  threadInput: {
+    flex: 1,
+    padding: "10px",
+    fontSize: "16px",
+    borderRadius: "5px",
+    border: "1px solid #ccc",
+  },
+  createButton: {
+    backgroundColor: "#8E44AD",
+    color: "#fff",
+    border: "none",
+    padding: "10px 15px",
+    fontSize: "14px",
+    borderRadius: "5px",
+    cursor: "pointer",
   },
   errorText: {
-    color: "red",
+    color: "#E74C3C", // A bright red color for error messages
+    fontWeight: "bold",
     fontSize: "16px",
   },
-} as const;
+};
 
 export default Home;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -19,14 +19,49 @@ interface ThreadProps {
   creator: string;
   created_at: string;
   onClose: () => void;
+  username: string;
 }
 
-const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose }) => {
-  const [messages, setMessages] = useState<string[]>([]);
+interface Message {
+  id: number;
+  text_field: string;
+  username: string;
+  created_at: string;
+  images: string[] | null;
+  thread_id: number;
+}
+
+const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose, username }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
-  const handleSendMessage = () => {
+  const fetchMessages = useCallback(async () => {
+    setIsFetching(true);
+    setError(null);
+    try {
+      const response = await fetch(`http://localhost:8080/messages?thread_id=${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+      const data = await response.json();
+      setMessages(data || []);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+      setError('Failed to load messages');
+      setMessages([]);
+    } finally {
+      setIsFetching(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  const handleSendMessage = async () => {
     if (newMessage.trim() === "") {
       setError("Message cannot be empty");
       return;
@@ -37,9 +72,40 @@ const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose
       return;
     }
 
-    setMessages([...messages, newMessage.trim()]);
-    setNewMessage("");
+    setIsLoading(true);
     setError(null);
+
+    const messageData = {
+      text_field: newMessage.trim(),
+      username: username,
+      thread_id: id,
+      images: [] // Empty array for now
+    };
+
+    try {
+      const response = await fetch('http://localhost:8080/messages/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messageData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(errorData || 'Failed to send message');
+      }
+
+      const newMessageData = await response.json();
+      setMessages(prevMessages => [...prevMessages, newMessageData]);
+      setNewMessage("");
+      setError(null);
+    } catch (err: any) {
+      console.error('Error sending message:', err);
+      setError(err.message || 'Failed to send message');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
@@ -48,6 +114,10 @@ const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose
       handleSendMessage();
     }
   };
+
+  const sortedMessages = [...messages].sort((a, b) => 
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
 
   return (
     <Dialog
@@ -99,21 +169,40 @@ const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose
             gap: 1
           }}
         >
-          {messages.map((message, index) => (
-            <Paper
-              key={index}
-              sx={{
-                p: 2,
-                bgcolor: 'primary.main',
-                color: 'white',
-                maxWidth: '80%',
-                alignSelf: 'flex-end',
-                borderRadius: '12px 12px 0 12px'
-              }}
-            >
-              {message}
-            </Paper>
-          ))}
+          {isFetching ? (
+            <Typography color="text.secondary" align="center">
+              Loading messages...
+            </Typography>
+          ) : error ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          ) : sortedMessages.length === 0 ? (
+            <Typography color="text.secondary" align="center">
+              No messages yet. Start the conversation!
+            </Typography>
+          ) : (
+            sortedMessages.map((message) => (
+              <Paper
+                key={message.id}
+                sx={{
+                  p: 2,
+                  bgcolor: message.username === username ? 'primary.main' : 'grey.300',
+                  color: message.username === username ? 'white' : 'text.primary',
+                  maxWidth: '80%',
+                  alignSelf: message.username === username ? 'flex-end' : 'flex-start',
+                  borderRadius: message.username === username 
+                    ? '12px 12px 0 12px' 
+                    : '12px 12px 12px 0'
+                }}
+              >
+                <Typography variant="caption" display="block" sx={{ mb: 1, opacity: 0.8 }}>
+                  {message.username} • {new Date(message.created_at).toLocaleString()}
+                </Typography>
+                {message.text_field}
+              </Paper>
+            ))
+          )}
         </Paper>
 
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -135,15 +224,16 @@ const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose
             variant="outlined"
             error={!!error}
             helperText={error || `${newMessage.length}/250 characters`}
+            disabled={isLoading}
           />
           <Button
             variant="contained"
             onClick={handleSendMessage}
-            disabled={!!error || newMessage.length === 0}
+            disabled={!!error || newMessage.trim().length === 0 || isLoading}
             endIcon={<SendIcon />}
             sx={{ minWidth: '100px' }}
           >
-            Send
+            {isLoading ? 'Sending...' : 'Send'}
           </Button>
         </Box>
       </DialogContent>

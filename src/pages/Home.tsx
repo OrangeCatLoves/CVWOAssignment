@@ -16,26 +16,29 @@ import {
   Divider,
 } from "@mui/material";
 import { Add as AddIcon, Search as SearchIcon } from "@mui/icons-material";
-import Thread from "../components/Thread"; // Import the Thread component
+import ThreadComponent from "../components/Thread"; // Renamed import
 
 // Define the type for a thread
-type Thread = {
+interface ThreadType {
   id: number;
   title: string;
   creator: string;
   created_at: string;
-};
+}
 
 const Home: React.FC = () => {
-  const [threads, setThreads] = useState<Thread[]>([]);
+  const [threads, setThreads] = useState<ThreadType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
+  const [filteredThreads, setFilteredThreads] = useState<ThreadType[]>([]);
   const [newThreadTitle, setNewThreadTitle] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
-  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
+  const [selectedThread, setSelectedThread] = useState<ThreadType | null>(null);
+
+  // Rest of your component code remains the same, just replace Thread with ThreadComponent
+  // and Thread[] with ThreadType[]
 
   useEffect(() => {
     const fetchThreads = async () => {
@@ -44,7 +47,7 @@ const Home: React.FC = () => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data: Thread[] = await response.json();
+        const data: ThreadType[] = await response.json();
         setThreads(data);
         setFilteredThreads(data);
         setLoading(false);
@@ -84,7 +87,7 @@ const Home: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const newThread: Thread = await response.json();
+      const newThread: ThreadType = await response.json();
       setThreads(prevThreads => [newThread, ...prevThreads]);
       setFilteredThreads(prevFiltered => [newThread, ...prevFiltered]);
       setNewThreadTitle("");
@@ -115,15 +118,17 @@ const Home: React.FC = () => {
     );
   }
 
+  
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       {selectedThread && (
-        <Thread
+        <ThreadComponent
           id={selectedThread.id}
           title={selectedThread.title}
           creator={selectedThread.creator}
           created_at={selectedThread.created_at}
           onClose={() => setSelectedThread(null)}
+          username={username}
         />
       )}
       <Box sx={{ height: '4rem', mb: 3 }}>

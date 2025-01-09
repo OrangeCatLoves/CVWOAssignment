@@ -1,5 +1,17 @@
 import React, { useState } from "react";
-import ReactDOM from "react-dom";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  TextField,
+  Button,
+  Box,
+  Typography,
+  IconButton,
+  Paper,
+  Alert
+} from "@mui/material";
+import { Close as CloseIcon, Send as SendIcon } from "@mui/icons-material";
 
 interface ThreadProps {
   id: number;
@@ -12,130 +24,131 @@ interface ThreadProps {
 const Thread: React.FC<ThreadProps> = ({ id, title, creator, created_at, onClose }) => {
   const [messages, setMessages] = useState<string[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleSendMessage = () => {
-    if (newMessage.trim() !== "") {
-      setMessages([...messages, newMessage]);
-      setNewMessage("");
+    if (newMessage.trim() === "") {
+      setError("Message cannot be empty");
+      return;
+    }
+
+    if (newMessage.length > 250) {
+      setError("Message cannot exceed 250 characters");
+      return;
+    }
+
+    setMessages([...messages, newMessage.trim()]);
+    setNewMessage("");
+    setError(null);
+  };
+
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
     }
   };
 
-  return ReactDOM.createPortal(
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
-        <button onClick={onClose} style={styles.closeButton}>
-          &times;
-        </button>
-        <h2 style={styles.title}>{title}</h2>
-        <p style={styles.details}>
-          Created by: {creator} on {new Date(created_at).toLocaleString()}
-        </p>
+  return (
+    <Dialog
+      open={true}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          minHeight: '60vh',
+          maxHeight: '80vh',
+          display: 'flex',
+          flexDirection: 'column'
+        }
+      }}
+    >
+      <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6" component="div">
+          {title}
+        </Typography>
+        <IconButton
+          onClick={onClose}
+          size="small"
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
 
-        <div style={styles.chatContainer}>
-          <div style={styles.messageList}>
-            {messages.map((message, index) => (
-              <div key={index} style={styles.message}>
-                {message}
-              </div>
-            ))}
-          </div>
-          <div style={styles.inputContainer}>
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              style={styles.input}
-            />
-            <button onClick={handleSendMessage} style={styles.sendButton}>
-              Send
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
+      <Typography variant="subtitle2" color="text.secondary" sx={{ px: 3, pb: 2 }}>
+        Created by {creator} on {new Date(created_at).toLocaleString()}
+      </Typography>
+
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', p: 3, flexGrow: 1 }}>
+        <Paper 
+          sx={{ 
+            flexGrow: 1, 
+            mb: 2, 
+            p: 2, 
+            overflowY: 'auto',
+            bgcolor: 'grey.50',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1
+          }}
+        >
+          {messages.map((message, index) => (
+            <Paper
+              key={index}
+              sx={{
+                p: 2,
+                bgcolor: 'primary.main',
+                color: 'white',
+                maxWidth: '80%',
+                alignSelf: 'flex-end',
+                borderRadius: '12px 12px 0 12px'
+              }}
+            >
+              {message}
+            </Paper>
+          ))}
+        </Paper>
+
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            fullWidth
+            multiline
+            maxRows={3}
+            value={newMessage}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              if (e.target.value.length > 250) {
+                setError("Message cannot exceed 250 characters");
+              } else {
+                setError(null);
+              }
+            }}
+            onKeyPress={handleKeyPress}
+            placeholder="Type your message... (250 characters max)"
+            variant="outlined"
+            error={!!error}
+            helperText={error || `${newMessage.length}/250 characters`}
+          />
+          <Button
+            variant="contained"
+            onClick={handleSendMessage}
+            disabled={!!error || newMessage.length === 0}
+            endIcon={<SendIcon />}
+            sx={{ minWidth: '100px' }}
+          >
+            Send
+          </Button>
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
-};
-
-const styles = {
-  overlay: {
-    position: "fixed" as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: "#fff",
-    borderRadius: "10px",
-    padding: "20px",
-    width: "80%",
-    maxWidth: "600px",
-    position: "relative" as const,
-  },
-  closeButton: {
-    position: "absolute" as const,
-    top: "10px",
-    right: "10px",
-    fontSize: "20px",
-    backgroundColor: "transparent",
-    border: "none",
-    cursor: "pointer",
-  },
-  title: {
-    margin: "0 0 10px",
-    fontSize: "24px",
-    color: "#333",
-  },
-  details: {
-    marginBottom: "20px",
-    color: "#555",
-  },
-  chatContainer: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "10px",
-  },
-  messageList: {
-    maxHeight: "200px",
-    overflowY: "auto" as const,
-    border: "1px solid #ddd",
-    borderRadius: "5px",
-    padding: "10px",
-    backgroundColor: "#f9f9f9",
-  },
-  message: {
-    padding: "5px 10px",
-    backgroundColor: "#007BFF",
-    color: "#fff",
-    borderRadius: "5px",
-    marginBottom: "5px",
-  },
-  inputContainer: {
-    display: "flex",
-    gap: "10px",
-  },
-  input: {
-    flex: 1,
-    padding: "10px",
-    fontSize: "16px",
-    borderRadius: "5px",
-    border: "1px solid #ddd",
-  },
-  sendButton: {
-    padding: "10px 20px",
-    backgroundColor: "#007BFF",
-    color: "#fff",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
 };
 
 export default Thread;

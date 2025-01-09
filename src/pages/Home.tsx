@@ -1,4 +1,22 @@
 import React, { useEffect, useState } from "react";
+import { TypeAnimation } from 'react-type-animation';
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  List,
+  ListItem,
+  Box,
+  CircularProgress,
+  Alert,
+  Card,
+  CardContent,
+  Divider,
+} from "@mui/material";
+import { Add as AddIcon, Search as SearchIcon } from "@mui/icons-material";
+import Thread from "../components/Thread"; // Import the Thread component
 
 // Define the type for a thread
 type Thread = {
@@ -12,11 +30,12 @@ const Home: React.FC = () => {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>(""); 
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
-  const [newThreadTitle, setNewThreadTitle] = useState<string>(""); 
+  const [newThreadTitle, setNewThreadTitle] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
 
   useEffect(() => {
     const fetchThreads = async () => {
@@ -41,7 +60,6 @@ const Home: React.FC = () => {
   }, []);
 
   const createThread = async () => {
-    // Validate inputs
     if (!newThreadTitle.trim()) {
       setError("Thread title cannot be empty");
       return;
@@ -67,12 +85,8 @@ const Home: React.FC = () => {
       }
 
       const newThread: Thread = await response.json();
-
-      // Update the threads list with the new thread
       setThreads(prevThreads => [newThread, ...prevThreads]);
       setFilteredThreads(prevFiltered => [newThread, ...prevFiltered]);
-      
-      // Clear the input field
       setNewThreadTitle("");
       setError(null);
     } catch (err: any) {
@@ -95,148 +109,120 @@ const Home: React.FC = () => {
 
   if (loading) {
     return (
-      <div>
-        <p>Loading threads...</p>
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.header}>Welcome to the Forum, {username}!</h1>
-
-      <div style={styles.searchContainer}>
-        <input
-          type="text"
-          placeholder="Search for threads..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={styles.searchInput}
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      {selectedThread && (
+        <Thread
+          id={selectedThread.id}
+          title={selectedThread.title}
+          creator={selectedThread.creator}
+          created_at={selectedThread.created_at}
+          onClose={() => setSelectedThread(null)}
         />
-      </div>
-
-      <div style={styles.createThreadContainer}>
-        <input
-          type="text"
-          placeholder="Enter thread title..."
-          value={newThreadTitle}
-          onChange={(e) => setNewThreadTitle(e.target.value)}
-          style={styles.threadInput}
-          disabled={isCreating}
-        />
-        <button 
+      )}
+      <Box sx={{ height: '4rem', mb: 3 }}>
+        <TypeAnimation
+          sequence={[
+            'Welcome to the Forum,',
+            1000,
+            `Welcome to the Forum, ${username}!`,
+          ]}
+          wrapper="h1"
+          speed={50}
           style={{
-            ...styles.createButton,
-            opacity: isCreating ? 0.7 : 1,
-            cursor: isCreating ? "not-allowed" : "pointer"
-          }} 
-          onClick={createThread}
-          disabled={isCreating}
-        >
-          {isCreating ? "Creating..." : "Create Thread"}
-        </button>
-      </div>
+            fontSize: '2.5rem',
+            color: '#1976d2',
+            fontFamily: '"Roboto","Helvetica","Arial",sans-serif',
+            fontWeight: 'bold',
+          }}
+          repeat={0}
+        />
+      </Box>
 
-      {error && <p style={styles.errorText}>{error}</p>}
+      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Search for threads..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
+            }}
+          />
+        </Box>
 
-      <h2 style={styles.subHeader}>Available Threads</h2>
-      <ul style={styles.list}>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Enter thread title..."
+            value={newThreadTitle}
+            onChange={(e) => setNewThreadTitle(e.target.value)}
+            disabled={isCreating}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={createThread}
+            disabled={isCreating}
+            startIcon={<AddIcon />}
+            sx={{ minWidth: 150 }}
+          >
+            {isCreating ? "Creating..." : "Create Thread"}
+          </Button>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
+      </Paper>
+
+      <Typography variant="h4" component="h2" gutterBottom color="primary" sx={{ mb: 3 }}>
+        Available Threads
+      </Typography>
+
+      <List>
         {filteredThreads.length > 0 ? (
           filteredThreads.map((thread) => (
-            <li key={thread.id} style={styles.threadItem}>
-              <h3 style={styles.title}>{thread.title}</h3>
-              <p style={styles.details}>
-                Created by {thread.creator} on{" "}
-                {new Date(thread.created_at).toLocaleDateString()}
-              </p>
-            </li>
+            <ListItem key={thread.id} sx={{ px: 0, mb: 2 }}>
+              <Card
+                elevation={2}
+                sx={{ width: "100%", cursor: "pointer" }}
+                onClick={() => setSelectedThread(thread)}
+              >
+                <CardContent>
+                  <Typography variant="h6" component="h3" gutterBottom>
+                    {thread.title}
+                  </Typography>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Created by {thread.creator} on{" "}
+                    {new Date(thread.created_at).toLocaleDateString()}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </ListItem>
           ))
         ) : (
-          <p>No threads found matching your search criteria.</p>
+          <Paper elevation={1} sx={{ p: 3, textAlign: "center" }}>
+            <Typography variant="body1" color="text.secondary">
+              No threads found matching your search criteria.
+            </Typography>
+          </Paper>
         )}
-      </ul>
-    </div>
+      </List>
+    </Container>
   );
-};
-
-
-const styles = {
-  container: {
-    padding: "20px",
-    fontFamily: "'Arial', sans-serif",
-    maxWidth: "800px",
-    margin: "0 auto",
-  },
-  header: {
-    fontSize: "28px",
-    fontWeight: "bold",
-    marginBottom: "20px",
-    color: "#2C3E50",
-  },
-  subHeader: {
-    fontSize: "20px",
-    fontWeight: "600",
-    marginBottom: "15px",
-    color: "#34495E",
-  },
-  list: {
-    listStyleType: "none",
-    padding: 0,
-  },
-  threadItem: {
-    padding: "20px",
-    marginBottom: "15px",
-    backgroundColor: "#f9f9f9",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
-  },
-  title: {
-    fontSize: "20px",
-    fontWeight: "bold",
-    color: "#2C3E50",
-  },
-  details: {
-    fontSize: "14px",
-    color: "#555",
-    margin: "5px 0",
-  },
-  searchContainer: {
-    marginBottom: "20px",
-  },
-  searchInput: {
-    width: "100%",
-    padding: "10px",
-    fontSize: "16px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-  },
-  createThreadContainer: {
-    display: "flex",
-    gap: "10px",
-    marginBottom: "20px",
-  },
-  threadInput: {
-    flex: 1,
-    padding: "10px",
-    fontSize: "16px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-  },
-  createButton: {
-    backgroundColor: "#8E44AD",
-    color: "#fff",
-    border: "none",
-    padding: "10px 15px",
-    fontSize: "14px",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-  errorText: {
-    color: "#E74C3C", // A bright red color for error messages
-    fontWeight: "bold",
-    fontSize: "16px",
-  },
 };
 
 export default Home;

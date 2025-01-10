@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+    "github.com/lib/pq"
 
 	_ "github.com/lib/pq"
 )
@@ -255,7 +256,69 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(messages)
 }
 
-// CreateMessage handles the creation of a new message
+// // CreateMessage handles the creation of a new message
+// func CreateMessage(w http.ResponseWriter, r *http.Request) {
+//     enableCORS(w)
+
+//     if r.Method == http.MethodOptions {
+//         w.WriteHeader(http.StatusOK)
+//         return
+//     }
+
+//     if r.Method != http.MethodPost {
+//         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+//         return
+//     }
+
+//     // Parse the request body
+//     var newMessage Message
+//     if err := json.NewDecoder(r.Body).Decode(&newMessage); err != nil {
+//         http.Error(w, "Invalid request body", http.StatusBadRequest)
+//         log.Printf("Error decoding request body: %v\n", err)
+//         return
+//     }
+
+//     // Validate required fields
+//     if newMessage.TextField == "" || newMessage.Username == "" || newMessage.ThreadID == 0 {
+//         http.Error(w, "text_field, username, and thread_id are required fields", http.StatusBadRequest)
+//         return
+//     }
+
+//     // Insert the new message into the database
+//     query := `
+//         INSERT INTO message (text_field, username, thread_id, images) 
+//         VALUES ($1, $2, $3, $4) 
+//         RETURNING id, text_field, username, created_at, images, thread_id`
+
+//     err := db.QueryRow(
+//         query,
+//         newMessage.TextField,
+//         newMessage.Username,
+//         newMessage.ThreadID,
+//         newMessage.Images,
+//     ).Scan(
+//         &newMessage.ID,
+//         &newMessage.TextField,
+//         &newMessage.Username,
+//         &newMessage.CreatedAt,
+//         &newMessage.Images,
+//         &newMessage.ThreadID,
+//     )
+
+//     if err != nil {
+//         http.Error(w, "Failed to create message", http.StatusInternalServerError)
+//         log.Printf("Error creating message: %v\n", err)
+//         return
+//     }
+
+//     // Return success response
+//     w.Header().Set("Content-Type", "application/json")
+//     w.WriteHeader(http.StatusCreated)
+//     if err := json.NewEncoder(w).Encode(newMessage); err != nil {
+//         log.Printf("Error encoding response: %v\n", err)
+//     }
+// }
+
 func CreateMessage(w http.ResponseWriter, r *http.Request) {
     enableCORS(w)
 
@@ -272,15 +335,44 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
     // Parse the request body
     var newMessage Message
     if err := json.NewDecoder(r.Body).Decode(&newMessage); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
         log.Printf("Error decoding request body: %v\n", err)
+        http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
         return
     }
 
+    // Log received message data for debugging
+    log.Printf("Received message data: %+v\n", newMessage)
+
     // Validate required fields
-    if newMessage.TextField == "" || newMessage.Username == "" || newMessage.ThreadID == 0 {
-        http.Error(w, "text_field, username, and thread_id are required fields", http.StatusBadRequest)
+    if newMessage.TextField == "" {
+        http.Error(w, "text_field cannot be empty", http.StatusBadRequest)
         return
+    }
+    if newMessage.Username == "" {
+        http.Error(w, "username cannot be empty", http.StatusBadRequest)
+        return
+    }
+    if newMessage.ThreadID == 0 {
+        http.Error(w, "thread_id cannot be empty", http.StatusBadRequest)
+        return
+    }
+
+    // Validate thread existence
+    var exists bool
+    err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM threads WHERE id = $1)", newMessage.ThreadID).Scan(&exists)
+    if err != nil {
+        log.Printf("Error checking thread existence: %v\n", err)
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+    if !exists {
+        http.Error(w, "Thread does not exist", http.StatusBadRequest)
+        return
+    }
+
+    // Initialize empty images array if nil
+    if newMessage.Images == nil {
+        newMessage.Images = []string{}
     }
 
     // Insert the new message into the database
@@ -289,26 +381,28 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
         VALUES ($1, $2, $3, $4) 
         RETURNING id, text_field, username, created_at, images, thread_id`
 
-    err := db.QueryRow(
+    err = db.QueryRow(
         query,
         newMessage.TextField,
         newMessage.Username,
         newMessage.ThreadID,
-        newMessage.Images,
+        pq.Array(newMessage.Images), // Use pq.Array for handling PostgreSQL arrays
     ).Scan(
         &newMessage.ID,
         &newMessage.TextField,
         &newMessage.Username,
         &newMessage.CreatedAt,
-        &newMessage.Images,
+        pq.Array(&newMessage.Images),
         &newMessage.ThreadID,
     )
 
     if err != nil {
-        http.Error(w, "Failed to create message", http.StatusInternalServerError)
         log.Printf("Error creating message: %v\n", err)
+        http.Error(w, fmt.Sprintf("Failed to create message: %v", err), http.StatusInternalServerError)
         return
     }
+
+    log.Printf("Successfully created message with ID: %d\n", newMessage.ID)
 
     // Return success response
     w.Header().Set("Content-Type", "application/json")
